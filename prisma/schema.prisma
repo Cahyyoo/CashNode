@@ -1,0 +1,162 @@
+// CashNode — Enterprise Project Cost Management
+// Prisma schema — Sprint 1: Foundation, Auth & Master Data
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum Role {
+  ADMIN
+  PM
+  FINANCE
+}
+
+model User {
+  id           String  @id @default(cuid())
+  name         String
+  email        String  @unique
+  passwordHash String
+  role         Role    @default(PM)
+  isActive     Boolean @default(true)
+
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  auditLogs       AuditLog[]
+  budgetRevisions BudgetRevision[]
+  expenses        Expense[]
+
+  @@index([departmentId])
+  @@map("users")
+}
+
+model Department {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  code        String  @unique
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users    User[]
+  projects Project[]
+
+  @@map("departments")
+}
+
+model Vendor {
+  id          String  @id @default(cuid())
+  name        String
+  contactName String?
+  email       String?
+  phone       String?
+  address     String?
+  isActive    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  expenses Expense[]
+
+  @@map("vendors")
+}
+
+model AuditLog {
+  id         String @id @default(cuid())
+  action     String
+  entityType String
+  entityId   String
+  changes    Json?
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@map("audit_logs")
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+model Project {
+  id            String        @id @default(cuid())
+  name          String
+  code          String        @unique
+  description   String?
+  status        ProjectStatus @default(PLANNING)
+  startDate     DateTime
+  endDate       DateTime
+  initialBudget Decimal       @db.Decimal(15, 2)
+
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  budgetRevisions BudgetRevision[]
+  expenses        Expense[]
+
+  @@index([departmentId])
+  @@map("projects")
+}
+
+model BudgetRevision {
+  id     String  @id @default(cuid())
+  amount Decimal @db.Decimal(15, 2)
+  reason String
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdById String?
+  createdBy   User?   @relation(fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([projectId])
+  @@index([createdById])
+  @@map("budget_revisions")
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  amount      Decimal  @db.Decimal(15, 2)
+  description String
+  expenseDate DateTime
+  receiptUrl  String
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  vendorId String
+  vendor   Vendor @relation(fields: [vendorId], references: [id])
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([vendorId])
+  @@index([userId])
+  @@map("expenses")
+}
